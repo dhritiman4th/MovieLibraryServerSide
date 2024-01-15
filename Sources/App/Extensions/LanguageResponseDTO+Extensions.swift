@@ -6,3 +6,14 @@
 //
 
 import Foundation
+import Vapor
+
+extension LanguageResponseDTO: Content {
+    init?(languageModel: LanguageModel) {
+        guard let id = languageModel.id else {
+            return nil
+        }
+        
+        self.init(id: id, name: languageModel.name ?? "")
+    }
+}
