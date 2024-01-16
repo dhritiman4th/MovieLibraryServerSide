@@ -8,13 +8,23 @@ public func configure(_ app: Application) async throws {
     // app.middleware.use(FileMiddleware(publicDirectory: app.directory.publicDirectory))
     
     // Database
-    let configuration = try SQLPostgresConfiguration(
-        hostname: Environment.get("DB_HOST_NAME") ?? "localhost",
-        username: Environment.get("DB_USERNAME") ?? "postgres",
-        password: Environment.get("DB_PASSWORD") ?? "",
-        database: Environment.get("DB_NAME") ?? "moviedb",
-        tls: .prefer(NIOSSLContext(configuration: .clientDefault)))
-    app.databases.use(.postgres(configuration: configuration), as: .psql)
+    if let databaseUrl = Environment.get("DATABASE_URL") {
+        var tlsConfig: TLSConfiguration = .makeClientConfiguration()
+        tlsConfig.certificateVerification = .none
+        let sslContext = try NIOSSLContext(configuration: tlsConfig)
+        
+        var configuration = try SQLPostgresConfiguration(url: databaseUrl)
+        configuration.coreConfiguration.tls = .require(sslContext)
+        app.databases.use(.postgres(configuration: configuration), as: .psql)
+    } else {
+        let configuration = try SQLPostgresConfiguration(
+            hostname: Environment.get("DB_HOST_NAME") ?? "localhost",
+            username: Environment.get("DB_USERNAME") ?? "postgres",
+            password: Environment.get("DB_PASSWORD") ?? "",
+            database: Environment.get("DB_NAME") ?? "moviedb",
+            tls: .prefer(NIOSSLContext(configuration: .clientDefault)))
+        app.databases.use(.postgres(configuration: configuration), as: .psql)
+    }
     
     // Migrations
     app.migrations.add(CreateUserTableMigration())
