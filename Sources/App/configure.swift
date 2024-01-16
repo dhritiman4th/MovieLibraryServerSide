@@ -7,20 +7,12 @@ public func configure(_ app: Application) async throws {
     // uncomment to serve files from /Public folder
     // app.middleware.use(FileMiddleware(publicDirectory: app.directory.publicDirectory))
     
-    guard let hostName = Environment.get("DB_HOST_NAME"),
-          let username = Environment.get("DB_USERNAME"),
-          let pass = Environment.get("DB_PASSWORD"),
-          let databaseName = Environment.get("DB_NAME"),
-          let jwtSecretKey = Environment.get("JWT_SECRET_KEY") else {
-        throw Abort(.expectationFailed, reason: "Server configuration failed.")
-    }
-    
     // Database
     let configuration = try SQLPostgresConfiguration(
-        hostname: hostName,
-        username: username,
-        password: pass,
-        database: databaseName,
+        hostname: Environment.get("DB_HOST_NAME") ?? "localhost",
+        username: Environment.get("DB_USERNAME") ?? "postgres",
+        password: Environment.get("DB_PASSWORD") ?? "",
+        database: Environment.get("DB_NAME") ?? "moviedb",
         tls: .prefer(NIOSSLContext(configuration: .clientDefault)))
     app.databases.use(.postgres(configuration: configuration), as: .psql)
     
@@ -35,7 +27,7 @@ public func configure(_ app: Application) async throws {
     try app.register(collection: MovieController())
     
     // JWT
-    app.jwt.signers.use(.hs256(key: jwtSecretKey))
+    app.jwt.signers.use(.hs256(key: Environment.get("JWT_SECRET_KEY") ?? "knightRider123"))
     // register routes
     try routes(app)
 }
