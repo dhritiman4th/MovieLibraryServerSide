@@ -19,6 +19,12 @@ struct MovieController: RouteCollection {
         
         // /api/users/<userId>/languages/<languageId>/movies
         api.post("movies", use: addMovie)
+        
+        // /api/users/<userId>/languages/<languageId>/movies/<movieId>
+        api.delete("movies", ":movieId", use: deleteMovie)
+        
+        // /api/users/<userId>/languages/<languageId>/movies/<movieId>
+        api.post("movies", ":movieId", use: updateMovie)
     }
     
     func fetchMovies(req: Request) async throws -> [MovieResponseDTO] {
@@ -84,8 +90,12 @@ struct MovieController: RouteCollection {
         guard let _ = try await UserModel.find(userId, on: req.db) else {
             throw Abort(.notFound)
         }
+        guard let movieId = req.parameters.get("movieId", as: UUID.self) else {
+            throw Abort(.badRequest)
+        }
         guard let movieToBeDeleted = try await MovieModel.query(on: req.db)
             .filter(\.$language.$id == languageId)
+            .filter(\.$id == movieId)
             .first() else {
             throw Abort(.notFound)
         }
@@ -96,5 +106,37 @@ struct MovieController: RouteCollection {
             throw Abort(.internalServerError)
         }
         return deletedMovie
+    }
+    
+    func updateMovie(req: Request) async throws -> MovieResponseDTO {
+        guard let userId = req.parameters.get("userId", as: UUID.self) else {
+            throw Abort(.badRequest)
+        }
+        guard let languageId = req.parameters.get("languageId", as: UUID.self) else {
+            throw Abort(.badRequest)
+        }
+        guard let _ = try await UserModel.find(userId, on: req.db) else {
+            throw Abort(.notFound)
+        }
+        guard let movieId = req.parameters.get("movieId", as: UUID.self) else {
+            throw Abort(.badRequest)
+        }
+        guard let movieToBeUpdated = try await MovieModel.query(on: req.db)
+            .filter(\.$language.$id == languageId)
+            .filter(\.$id == movieId)
+            .first() else {
+            throw Abort(.notFound)
+        }
+        let movieNeedToUpdate = try req.content.decode(MovieRequestDTO.self)
+        movieToBeUpdated.title = movieNeedToUpdate.title
+        movieToBeUpdated.genre = movieNeedToUpdate.genre
+        movieToBeUpdated.releaseDate = movieNeedToUpdate.releaseDate
+        
+        try await movieToBeUpdated.update(on: req.db)
+        
+        guard let movieResponseDTO = MovieResponseDTO(movieModel: movieToBeUpdated) else {
+            throw Abort(.internalServerError)
+        }
+        return movieResponseDTO
     }
 }
